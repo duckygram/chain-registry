@@ -51,16 +51,16 @@
         echo "Not a tag or merge request close event."
         exit 1
       fi
-    - docker login -u $HUB_REGISTRY_USER -p $HUB_REGISTRY_PASSWORD
+    - docker login "$CONTAINER_REGISTRY_HOST" -u "$CONTAINER_REGISTRY_PUSH_USERNAME" -p "$CONTAINER_REGISTRY_PUSH_PASSWORD"
     - >
       if [ -n "$DOCKERFILE_NAME" ]; then
-        docker build -f $DOCKERFILE_NAME -t lorrodx/$CI_PROJECT_NAME:$VERSION .;
+        docker build -f "$DOCKERFILE_NAME" -t "$CONTAINER_REGISTRY_HOST/$CI_PROJECT_NAME:$VERSION" .;
       else
-        docker build -t lorrodx/$CI_PROJECT_NAME:$VERSION .;
+        docker build -t "$CONTAINER_REGISTRY_HOST/$CI_PROJECT_NAME:$VERSION" .;
       fi
-    - docker push lorrodx/$CI_PROJECT_NAME:$VERSION
+    - docker push "$CONTAINER_REGISTRY_HOST/$CI_PROJECT_NAME:$VERSION"
     - echo "VERSION=$VERSION" > version.env
-    - echo "IMAGE_PATH=lorrodx/$CI_PROJECT_NAME:$VERSION" >> version.env
+    - echo "IMAGE_PATH=$CONTAINER_REGISTRY_HOST/$CI_PROJECT_NAME:$VERSION" >> version.env
   tags:
     - 5.188.119.62-docker
   artifacts:
