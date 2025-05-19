@@ -1,0 +1,34 @@
+version: "3.3"
+
+networks:
+  internal_docker_net:
+    external: true
+
+x-common-env: &shared-settings
+  restart: always
+  networks:
+    - internal_docker_net
+
+services:
+  outbe-node:
+    <<: *shared-settings
+    image: docker.io/lorrodx/outbe-node:v0.0.1-deployment
+    container_name: outbe-node
+    environment:
+      - LEDGER_ENABLED=false
+      - CLEAN=false
+    ports:
+      - "26657:26657"
+      - "26656:26656"
+      - "1317:1317"
+      - "9090:9090"
+      - "9091:9091"
+    volumes:
+      - outbe_node_data:/root/.outbe-node
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+
+volumes:
+  outbe_node_data:

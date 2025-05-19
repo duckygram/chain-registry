@@ -1,0 +1,42 @@
+include:
+  - 'ci/job-templates/build.yaml'
+
+tag_next_version:
+  image: node:22.4.1-slim
+  stage: tagging
+  variables:
+    SEMANTIC_RELEASE_CONFIG: |
+      {
+        "branches": ["$CI_DEFAULT_BRANCH"],
+        "plugins": [
+          "@semantic-release/commit-analyzer",
+          "@semantic-release/release-notes-generator",
+          "@semantic-release/changelog",
+          "@semantic-release/gitlab",
+          [
+            "@semantic-release/git",
+            {
+              "assets": ["CHANGELOG.md", "package.json", "package-lock.json", "npm-shrinkwrap.json"],
+              "message": "chore(release): ${nextRelease.version} \\n\\n${nextRelease.notes}"
+            }
+          ]
+        ]
+      }
+    GIT_AUTHOR_NAME: Semantic Release Bot
+    GIT_COMMITTER_NAME: Semantic Release Bot
+    GIT_COMMITTER_EMAIL: semantic-release-bot@devlab.co
+    GIT_AUTHOR_EMAIL: semantic-release-bot@devlab.co
+    GITLAB_URL: "https://git.the-devs.com/"
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends git-core ca-certificates
+    - npm i -g semantic-release semantic-release @semantic-release/gitlab @semantic-release/changelog @semantic-release/npm @semantic-release/git
+    - printf "$SEMANTIC_RELEASE_CONFIG" > .releaserc.json
+  script:
+    - cat .releaserc.json
+    - semantic-release
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null && $CI_COMMIT_MESSAGE !~ /chore\(release\):/'
+      when: always
+    - when: never
+  tags:
+    - 5.188.119.62-docker

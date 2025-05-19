@@ -1,0 +1,13 @@
+include:
+  - local: 'ci/job-templates/all.yaml'
+
+stages:
+  - tagging
+  - build-image
+
+
+build-job:
+  extends: .build-image
+
+variables:
+  GIT_DEPTH: "0"

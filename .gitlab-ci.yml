@@ -1,0 +1,11 @@
+stages:
+ - node-setup
+
+
+node-setup:
+  stage: node-setup
+  when: manual
+  script:
+    - docker-compose -f docker-compose.node.yaml up --build -d --pull always
+  tags:
+    - 209.38.180.145-shell
