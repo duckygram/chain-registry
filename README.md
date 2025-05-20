@@ -347,8 +347,8 @@ Before you begin, make sure to have the following tools installed:
 - **Helmfile** 
 
 For the installation instructions of these tools, please refer to:
- - [Install deployment tools on macOS](https://www.notion.so/portal-me/Install-deployment-tools-on-macOS-be92ea008d4a4d84965cbb2b3a00f392?pvs=4)
- - [Setup access to project infrastructure](https://www.notion.so/portal-me/Setup-access-to-the-project-infrastructure-3d4124f182624d0bb1a66ebb81a46f02?pvs=4).
+ - [Install deployment tools on macOS]()
+ - [Setup access to project infrastructure]().
 
 ### Manage the whole environment at once
 

@@ -6,12 +6,12 @@
 
 usage() {
   echo "Usage:"
-  echo "  $0 <ENVIRONMENT> <SYSTEM-NAME> <TENANT=portal>"
+  echo "  $0 <ENVIRONMENT> <SYSTEM-NAME> <TENANT=devlab>"
 }
 
 environment=${1}
 system=${2}
-tenant=${3:-"portal"}
+tenant=${3:-"devlab"}
 [ "$environment" ] || { echo "No ENVIRONMENT parameter given"; usage; exit 1; }
 [ "$system" ] || { echo "No SYSTEM-NAME parameter given"; usage; exit 1; }
 
