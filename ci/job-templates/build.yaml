@@ -64,13 +64,14 @@
     - echo "VERSION=$VERSION" > version.env
     - echo "IMAGE_PATH=$CONTAINER_REGISTRY_HOST/$CI_PROJECT_NAME:$VERSION" >> version.env
     - echo $CONTAINER_REGISTRY_HOST/$CI_PROJECT_NAME:$VERSION
+    - echo "IMAGE_VERSION=$IMAGE_VERSION" >> version.env
+    - echo "BRANCH_VERSION=$IMAGE_VERSION" >> version.env
   artifacts:
     paths:
       - version.env
 
 
 .publish-chart:
-  stage: build-image
   image: $CONTAINER_REGISTRY_HOST/base/tools/deploy-toolbox:latest
   variables:
     CHART_DIR: helm/app
