@@ -11,7 +11,6 @@ build-job:
   extends: .build-image
 
 publish-chart:
-  stage: publish-chart
   extends: .publish-chart
 
 variables:
