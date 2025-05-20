@@ -67,3 +67,29 @@
   artifacts:
     paths:
       - version.env
+
+
+.publish-chart:
+  stage: build-image
+  image: $CONTAINER_REGISTRY_HOST/base/tools/deploy-toolbox:latest
+  variables:
+    CHART_DIR: helm/app
+    GENERIC_ALIAS: app
+    GRAPHQL_DEPLOYMENT_ALIAS: app
+  script:
+    - if [ -z "$CHART_NAME" ]; then CHART_NAME="$(yq e ".name" $CHART_DIR/Chart.yaml)"; fi
+    - yq e ".name = \"$CHART_NAME\"" -i $CHART_DIR/Chart.yaml
+    - if [ "$CONTAINER_REPOSITORY" ]; then yq e ".${GENERIC_ALIAS}.image.repository = \"$CONTAINER_REPOSITORY\"" -i $CHART_DIR/values.yaml; fi
+    - yq e ".${GENERIC_ALIAS}.image.registry = \"$CONTAINER_REGISTRY_HOST\"" -i $CHART_DIR/values.yaml
+    - yq e ".${GENERIC_ALIAS}.image.tag = \"$IMAGE_VERSION\"" -i $CHART_DIR/values.yaml
+    - yq e ".${GENERIC_ALIAS}.chart.name = \"$CHART_NAME\"" -i $CHART_DIR/values.yaml
+    - yq e ".${GENERIC_ALIAS}.chart.version = \"$BRANCH_VERSION\"" -i $CHART_DIR/values.yaml
+    # Enable GraphQL subgraph deployment
+    - if [ "$GRAPHQL_SUBGRAPH_NAME" ]; then yq e ".${GRAPHQL_DEPLOYMENT_ALIAS}.cosmo.enabled = true" -i $CHART_DIR/values.yaml; fi
+    - if [ "$GRAPHQL_SUBGRAPH_NAME" ]; then yq e ".${GRAPHQL_DEPLOYMENT_ALIAS}.cosmo.subgraphName = \"$GRAPHQL_SUBGRAPH_NAME\"" -i $CHART_DIR/values.yaml; fi
+    - if [ "$GRAPHQL_SUBGRAPH_NAME" ]; then yq e ".${GRAPHQL_DEPLOYMENT_ALIAS}.cosmo.schemas.nexus.group = \"$GRAPHQL_SUBGRAPH_PATH\"" -i $CHART_DIR/values.yaml; fi
+    - if [ "$GRAPHQL_SUBGRAPH_NAME" ]; then yq e ".${GRAPHQL_DEPLOYMENT_ALIAS}.cosmo.schemas.nexus.url = \"https://$NEXUS_HOST\"" -i $CHART_DIR/values.yaml; fi
+    - if [ "$GRAPHQL_SUBGRAPH_NAME" ]; then yq e ".${GRAPHQL_DEPLOYMENT_ALIAS}.cosmo.schemas.nexus.repository = \"graphql\"" -i $CHART_DIR/values.yaml; fi
+    - helm package "$CHART_DIR" --version="$BRANCH_VERSION" --dependency-update
+    - helm registry login -u $HELM_REGISTRY_PUSH_USERNAME --password "$HELM_REGISTRY_PUSH_PASSWORD" "$HELM_REGISTRY_HOST"
+    - helm push "${CHART_NAME}-${BRANCH_VERSION}.tgz" "oci://$HELM_REGISTRY_HOST/$HELM_REGISTRY_PATH"
