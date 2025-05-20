@@ -1,0 +1,77 @@
+variables:
+  DEPLOY_TOOLBOX_VERSION: 1.5.0
+
+.generate-pipelines:
+  image: $CONTAINER_REGISTRY_HOST/base/tools/deploy-toolbox-root:$DEPLOY_TOOLBOX_VERSION
+  script:
+    - .gitlab/generate-pipelines.py
+  artifacts:
+    paths:
+      - .gitlab/generated*.yaml
+
+.run-deploy:
+  image: registry.base.our-own.cloud/base/tools/deploy-toolbox:$DEPLOY_TOOLBOX_VERSION
+  variables:
+    KUBERNETES_CPU_REQUEST: 300m
+    KUBERNETES_MEMORY_REQUEST: 1Gi
+  before_script:
+    - mkdir -p ~/.ssh; chmod 700 ~/.ssh
+    - eval $(ssh-agent)
+    - GIT_KEY=~/.ssh/git_ro_ssh_key.pem
+    - echo $GITLAB_DEPLOY_SSH_KEY | base64 -d > $GIT_KEY
+    - chmod 600 $GIT_KEY
+    - ssh-add $GIT_KEY
+
+.run-terraform:
+  extends: .run-deploy
+  resource_group: $ENV_NAME/$SYSTEM_NAME
+  script:
+    - if [ -z "$CMD" ]; then echo "CMD is not set"; exit 1; fi
+    - if [ -z "$ENV_NAME" ]; then echo "ENV_NAME is not set"; exit 1; fi
+    - if [ ! -d "$CI_PROJECT_DIR/environments/$ENV_NAME/$SYSTEM_NAME" ]; then echo "No environments/$ENV_NAME/$SYSTEM_NAME found"; exit 1; fi
+    - git config --global --add safe.directory "$(pwd)" # required to have get_repo_root() working in terragrunt
+    - if [ "$CMD" = "apply" ]; then AUTO_APPROVE="-auto-approve"; else AUTO_APPROVE=; fi
+    - |
+      if [ -z "$SYSTEM_NAME" ]; then 
+        echo "SYSTEM_NAME is not set, executing terragrunt run-all"
+        terragrunt run-all --terragrunt-working-dir $CI_PROJECT_DIR/environments/$ENV_NAME $CMD --terragrunt-non-interactive -lock-timeout=5m $AUTO_APPROVE
+      else
+        echo "Executing terragrunt for the environments/$ENV_NAME/$SYSTEM_NAME"
+        terragrunt --terragrunt-working-dir $CI_PROJECT_DIR/environments/$ENV_NAME/$SYSTEM_NAME $CMD --terragrunt-non-interactive -lock-timeout=5m $AUTO_APPROVE
+      fi
+
+.run-helmfile:
+  extends: .run-deploy
+  stage: deploy
+  resource_group: $ENV_NAME/$SYSTEM_NAME
+  script:
+    - HELMFILE="helmfile.yaml"; if [ -z "$SYSTEM_NAME" ]; then HELMFILE="helmfile-env.yaml"; fi
+    - if [ -z "$CMD" ]; then echo "CMD is not set"; exit 1; fi
+    - if [ -z "$ENV_NAME" ]; then echo "ENV_NAME is not set"; exit 1; fi
+    - if [ ! -d "$CI_PROJECT_DIR/environments/$ENV_NAME/$SYSTEM_NAME" ]; then echo "No environments/$ENV_NAME/$SYSTEM_NAME found"; exit 1; fi
+    - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    - CLUSTER_NAME=$(yq eval '.cluster_name' $CI_PROJECT_DIR/environments/$ENV_NAME/environment.yaml)
+    - aws eks update-kubeconfig --name $CLUSTER_NAME --alias $CLUSTER_NAME --role-arn arn:aws:iam::$ACCOUNT_ID:role/$CLUSTER_NAME-ClusterAdminRole
+    - helmfile --color $CMD -f "$CI_PROJECT_DIR/environments/$ENV_NAME/$SYSTEM_NAME/$HELMFILE"
+
+.run-apply-all:
+  extends: .run-deploy
+  resource_group: $ENV_NAME/$SYSTEM_NAME
+  script:
+    - HELMFILE="helmfile.yaml"
+    - if [ -z "$ENV_NAME" ]; then echo "ENV_NAME is not set"; exit 1; fi
+    - if [ -z "$SYSTEM_NAME" ]; then echo "Running FULL environment ${ENV_NAME^^}"; HELMFILE="helmfile-env.yaml"; fi
+    - CFG_DIR="$(echo "environments/$ENV_NAME/$SYSTEM_NAME" | sed 's/\/\+$//g')"
+    - if [ ! -d "$CFG_DIR" ]; then echo "No $CFG_DIR found"; exit 1; fi
+    - git config --global --add safe.directory "$(pwd)" # required to have get_repo_root() working in terragrunt
+    - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    - CLUSTER_NAME=$(yq eval '.cluster_name' $CI_PROJECT_DIR/environments/$ENV_NAME/environment.yaml)
+    - aws eks update-kubeconfig --name $CLUSTER_NAME --alias $CLUSTER_NAME --role-arn arn:aws:iam::$ACCOUNT_ID:role/$CLUSTER_NAME-ClusterAdminRole
+    - |
+      if [ -f $CFG_DIR/terragrunt.hcl ]; then
+        terragrunt run-all --terragrunt-working-dir "$CFG_DIR" apply --terragrunt-non-interactive -lock-timeout=5m -auto-approve
+      fi
+    - |
+      if [ -f  "$CFG_DIR/$HELMFILE" ]; then
+        helmfile --color apply -f "$CFG_DIR/$HELMFILE" 
+      fi

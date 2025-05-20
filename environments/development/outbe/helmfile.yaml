@@ -1,0 +1,11 @@
+# {{ $e := (readFile "../environment.yaml" | fromYaml) }}
+# {{ $isGitUrl := hasPrefix "git::" $e.template.url }}
+# {{ $ref := (ternary (print "?ref=" $e.template.ref) "" $isGitUrl) }}
+# {{ $pathPrefix := (ternary "" "../" $isGitUrl) }}
+helmfiles:
+  - path: {{ print $pathPrefix $e.template.url "/outbe/helmfile/helmfile.yaml" $ref | quote }}
+    values:
+      - {{ omit $e "ci" "template" | toYaml | nindent 8 }}
+      - apps:
+          versions:
+            outbe-node: v1.0.0-deployment

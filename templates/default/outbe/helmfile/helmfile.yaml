@@ -1,0 +1,28 @@
+environments:
+  default:
+    values:
+      - ../../helmfile-global.yaml
+      - systemName: outbe
+        apps:
+          versions: {}
+          values:
+            outbe-node:
+
+---
+# {{ $namespace := print .Values.environment "-" .Values.systemName  }}
+
+releases:
+  - name: outbe-node
+    namespace: "{{ $namespace }}"
+    chart: "{{ .Values.chartRegistry }}/outbe-node"
+    version: "{{ index .Values.apps.versions "outbe-node" }}"
+    values:
+      - apps/outbe-node.yaml.gotmpl
+      - {{ index .Values.apps.values "outbe-node" | default dict | toYaml | nindent 8 }}
+
+  - name: extra-manifest
+    namespace: "{{ $namespace }}"
+    chart: "{{ .Values.chartRegistry }}/base/tools/raw"
+    version: 1.2.0
+    values:
+      - apps/extra-manifest.yaml.gotmpl
