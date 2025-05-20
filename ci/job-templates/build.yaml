@@ -82,6 +82,7 @@
     GENERIC_ALIAS: app
     GRAPHQL_DEPLOYMENT_ALIAS: app
   script:
+    - source version.env
     - if [ -z "$CHART_NAME" ]; then CHART_NAME="$(yq e ".name" $CHART_DIR/Chart.yaml)"; fi
     - yq e ".name = \"$CHART_NAME\"" -i $CHART_DIR/Chart.yaml
     - if [ "$CONTAINER_REPOSITORY" ]; then yq e ".${GENERIC_ALIAS}.image.repository = \"$CONTAINER_REPOSITORY\"" -i $CHART_DIR/values.yaml; fi
