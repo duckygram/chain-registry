@@ -3,7 +3,15 @@ app:
     gateways:
       internal:
         hostnames:
-          - "node.{{ .Values.environment }}.{{ .Values.systemName }}.{{ .Values.ingress.baseDomain }}"
+          - "node-rpc.{{ .Values.environment }}.{{ .Values.systemName }}.{{ .Values.ingress.baseDomain }}"
+      rpc-gw:
+        gatewayName: istio-system/default-gateway-internal
+        hostnames: []
+        customRoutes: []
+        defaultRouteEnabled: true
+        servicePort: "rest"
+        hostnames:
+          - "node-rest.{{ .Values.environment }}.{{ .Values.systemName }}.{{ .Values.ingress.baseDomain }}"
 #      public:
 #        hostnames:
 #          - "node.{{ .Values.environment }}.{{ .Values.systemName }}.in.{{ .Values.ingress.baseDomain }}"
