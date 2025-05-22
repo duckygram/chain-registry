@@ -6,7 +6,6 @@ app:
           - "node-rpc.{{ .Values.environment }}.{{ .Values.systemName }}.{{ .Values.ingress.baseDomain }}"
       rest-gw:
         gatewayName: istio-system/default-gateway-internal
-        hostnames: []
         customRoutes: []
         defaultRouteEnabled: true
         servicePort: "rest"
