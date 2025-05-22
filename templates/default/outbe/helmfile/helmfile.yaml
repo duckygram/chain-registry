@@ -20,6 +20,14 @@ releases:
       - apps/outbe-node.yaml.gotmpl
       - {{ index .Values.apps.values "outbe-node" | default dict | toYaml | nindent 8 }}
 
+  - name: explorer
+    namespace: "{{ $namespace }}"
+    chart: "{{ .Values.chartRegistry }}/explorer"
+    version: "{{ index .Values.apps.versions "explorer" }}"
+    values:
+      - apps/explorer.yaml.gotmpl
+      - {{ index .Values.apps.values "explorer" | default dict | toYaml | nindent 8 }}
+
   - name: extra-manifest
     namespace: "{{ $namespace }}"
     chart: "{{ .Values.chartRegistry }}/base/tools/raw"

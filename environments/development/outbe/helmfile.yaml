@@ -9,3 +9,4 @@ helmfiles:
       - apps:
           versions:
             outbe-node: v1.0.0-deployment
+            explorer: 0.0.1-deployment
