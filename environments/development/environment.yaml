@@ -1,4 +1,4 @@
-project_name: "platform"
+project_name: "outbe"
 environment: "development"
 cosmo_organization: "development"
 cluster_name: "development"
