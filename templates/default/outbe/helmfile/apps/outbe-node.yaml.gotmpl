@@ -4,7 +4,7 @@ app:
       internal:
         hostnames:
           - "node-rpc.{{ .Values.environment }}.{{ .Values.systemName }}.{{ .Values.ingress.baseDomain }}"
-      rpc-gw:
+      rest-gw:
         gatewayName: istio-system/default-gateway-internal
         hostnames: []
         customRoutes: []
