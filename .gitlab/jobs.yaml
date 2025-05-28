@@ -1,5 +1,5 @@
 variables:
-  DEPLOY_TOOLBOX_VERSION: 1.5.0
+  DEPLOY_TOOLBOX_VERSION: 1.5.1
 
 .generate-pipelines:
   image: $CONTAINER_REGISTRY_HOST/base/tools/deploy-toolbox-root:$DEPLOY_TOOLBOX_VERSION
