@@ -27,10 +27,3 @@ releases:
     values:
       - apps/explorer.yaml.gotmpl
       - {{ index .Values.apps.values "explorer" | default dict | toYaml | nindent 8 }}
-
-  - name: extra-manifest
-    namespace: "{{ $namespace }}"
-    chart: "{{ .Values.chartRegistry }}/base/tools/raw"
-    version: 1.2.0
-    values:
-      - apps/extra-manifest.yaml.gotmpl
