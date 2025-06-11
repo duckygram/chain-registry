@@ -1,0 +1,15 @@
+project_name: "outbe"
+environment: "integration"
+cosmo_organization: "integration"
+cluster_name: "integration"
+production_mode: false
+region: "eu-central-1"
+
+ci:
+  auto_apply_main: false
+  branch_apply_enabled: true
+  all_jobs_are_manual: false
+
+template:
+  url: "../../templates/default"
+  ref: ""

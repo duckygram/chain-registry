@@ -3,10 +3,6 @@
 # {{ $ref := (ternary (print "?ref=" $e.template.ref) "" $isGitUrl) }}
 # {{ $pathPrefix := (ternary "" "../" $isGitUrl) }}
 helmfiles:
-  - path: {{ print $pathPrefix $e.template.url "/outbe/helmfile/helmfile.yaml" $ref | quote }}
+  - path: {{ print $pathPrefix $e.template.url "/skeleton/helmfile/helmfile.yaml" $ref | quote }}
     values:
       - {{ omit $e "ci" "template" | toYaml | nindent 8 }}
-      - apps:
-          versions:
-            outbe-node: v1.1.2
-            explorer: v1.1.0-deployment

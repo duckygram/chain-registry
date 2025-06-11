@@ -8,5 +8,5 @@ helmfiles:
       - {{ omit $e "ci" "template" | toYaml | nindent 8 }}
       - apps:
           versions:
-            outbe-node: v1.1.2
-            explorer: v1.1.0-deployment
+            outbe-node: v1.1.1
+            explorer: v1.2.0
