@@ -1,0 +1,15 @@
+project_name: "outbe"
+environment: "development"
+cosmo_organization: "development"
+cluster_name: "development"
+production_mode: false
+region: "eu-central-1"
+
+ci:
+  auto_apply_main: false
+  branch_apply_enabled: true
+  all_jobs_are_manual: false
+
+template:
+  url: "../../templates/default"
+  ref: ""

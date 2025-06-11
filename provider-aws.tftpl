@@ -1,0 +1,24 @@
+provider "aws" {
+  %{~ if can(args.allowed_account_id) ~}
+  allowed_account_ids = ["${args.allowed_account_id}"]
+  %{~ endif ~}
+  %{~ if can(args.alias) ~}
+  alias = "${args.alias}"
+  %{~ endif ~}
+  region = "${args.region}"
+  %{~ if can(args.iam_role) ~}
+  assume_role {
+    role_arn = "${args.iam_role}"
+  }
+  %{~ endif ~}
+  %{~ if can(args.profile) ~}
+  profile = "${args.profile}"
+  %{~ endif ~}
+  default_tags {
+    tags = {
+      %{~ for tag_name, tag_value in args.tags ~}
+        ${tag_name} = "${tag_value}"
+      %{~ endfor ~}
+    }
+  }
+}

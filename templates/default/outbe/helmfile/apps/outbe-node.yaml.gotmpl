@@ -1,0 +1,23 @@
+app:
+  ingress:
+    gateways:
+      internal:
+        hostnames:
+          - "node-rpc.{{ .Values.environment }}.{{ .Values.systemName }}.{{ .Values.ingress.baseDomain }}"
+      rest-gw:
+        gatewayName: istio-system/default-gateway-internal
+        customRoutes: []
+        defaultRouteEnabled: true
+        servicePort: "rest"
+        hostnames:
+          - "node-rest.{{ .Values.environment }}.{{ .Values.systemName }}.{{ .Values.ingress.baseDomain }}"
+      grpc-gw:
+        gatewayName: istio-system/default-gateway-internal
+        customRoutes: []
+        defaultRouteEnabled: true
+        servicePort: "grpc"
+        hostnames:
+          - "node-grpc.{{ .Values.environment }}.{{ .Values.systemName }}.{{ .Values.ingress.baseDomain }}"
+#      public:
+#        hostnames:
+#          - "node.{{ .Values.environment }}.{{ .Values.systemName }}.in.{{ .Values.ingress.baseDomain }}"
