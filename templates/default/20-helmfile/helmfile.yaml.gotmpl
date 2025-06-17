@@ -1,0 +1,58 @@
+environments:
+  default:
+    values:
+      - chartRegistry: "oci://helm-registry.base.our-own.cloud"
+        secretPath: "ref+awssecrets://outbe/environment/"
+        ingress:
+          baseDomain: "our-own.cloud"
+#        tracing:
+#          agent:
+#            host: "collector.opentelemetry.svc.cluster.local"
+#            port: 6831
+#        useSentry: true
+#        sentry:
+#          projectClass: '{{ if eq .Values.environment "production" }}prod{{ else }}dev{{ end }}'
+      - apps:
+          versions: {}
+          values: {}
+          enabled: {}
+
+---
+
+helmDefaults:
+  wait: true
+  createNamespace: true
+  kubeContext: '{{ env "DEPLOY_KUBE_CONTEXT" | default .Values.cluster_name }}'
+
+# {{ $namespace := print .Values.project_name "-" .Values.environment }}
+releases:
+  # Release namespace-setup to be deployed to every namespace. It provides optional namespace labeling and
+  # grants access to the namespace to specified entities.
+  - name: namespace-setup
+    namespace: "{{ $namespace }}"
+    chart: "{{ .Values.chartRegistry }}/base/tools/namespace-setup"
+    version: 1.0.0
+    values:
+      - labels:
+          environment: '{{ .Values.environment }}'
+      - clusterRoleGrants:
+          edit:
+            - kind: Group
+              name: developers@devlab.co
+      - {{ tpl (index .StateValues "namespace-setup" | default dict | toYaml) . | nindent 8 }}
+
+  - name: outbe-node
+    namespace: "{{ $namespace }}"
+    chart: "{{ .Values.chartRegistry }}/outbe/outbe-node"
+    version: "{{ index .Values.apps.versions "outbe-node" }}"
+    values:
+      - apps/outbe-node.yaml.gotmpl
+      - {{ index .Values.apps.values "outbe-node" | default dict | toYaml | nindent 8 }}
+
+  - name: explorer
+    namespace: "{{ $namespace }}"
+    chart: "{{ .Values.chartRegistry }}/outbe/explorer"
+    version: "{{ index .Values.apps.versions "explorer" }}"
+    values:
+      - apps/explorer.yaml.gotmpl
+      - {{ index .Values.apps.values "explorer" | default dict | toYaml | nindent 8 }}

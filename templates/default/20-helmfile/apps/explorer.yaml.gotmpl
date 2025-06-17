@@ -1,0 +1,9 @@
+app:
+  ingress:
+    gateways:
+      internal:
+        hostnames:
+          - "explorer.{{ .Values.environment }}.{{ .Values.project_name }}.{{ .Values.ingress.baseDomain }}"
+#      public:
+#        hostnames:
+#          - "node.{{ .Values.environment }}.{{ .Values.project_name }}.in.{{ .Values.ingress.baseDomain }}"

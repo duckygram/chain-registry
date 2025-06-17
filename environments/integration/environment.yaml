@@ -1,7 +1,6 @@
 project_name: "outbe"
 environment: "integration"
-cosmo_organization: "integration"
-cluster_name: "integration"
+cluster_name: "development"
 production_mode: false
 region: "eu-central-1"
 
@@ -11,5 +10,5 @@ ci:
   all_jobs_are_manual: false
 
 template:
-  url: "../../templates/default"
+  url: "templates/default"
   ref: ""
