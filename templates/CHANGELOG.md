@@ -1,5 +1,11 @@
 # Templates Change Log
 
+## 1.1.0 (2025-06-17)
+
+### Features
+
+- reorganize the config (d21db7d)
+
 ## 1.0.0 (2025-06-11)
 
 ### Bug Fixes
