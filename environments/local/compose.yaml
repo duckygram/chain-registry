@@ -1,0 +1,28 @@
+services:
+  outbe-node:
+    image: registry.base.our-own.cloud/outbe/outbe-node:latest
+    container_name: outbe-node
+    environment:
+      - LEDGER_ENABLED=false
+      - CLEAN=false
+    ports:
+      - "26657:26657"
+      - "26656:26656"
+      - "1317:1317"
+      - "9090:9090"
+      - "9091:9091"
+    volumes:
+      - outbe_node_data:/root/.outbe-node
+    restart: unless-stopped
+
+  explorer:
+    image: registry.base.our-own.cloud/outbe/explorer:latest
+    container_name: outbe-node
+    environment:
+      - LEDGER_ENABLED=false
+      - CLEAN=false
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+volumes:
+  outbe_node_data:

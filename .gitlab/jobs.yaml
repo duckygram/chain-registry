@@ -1,5 +1,5 @@
 variables:
-  DEPLOY_TOOLBOX_VERSION: 1.5.1
+  DEPLOY_TOOLBOX_VERSION: 1.6.1
 
 .generate-pipelines:
   image: $CONTAINER_REGISTRY_HOST/base/tools/deploy-toolbox-root:$DEPLOY_TOOLBOX_VERSION
@@ -21,57 +21,67 @@ variables:
     - echo $GITLAB_DEPLOY_SSH_KEY | base64 -d > $GIT_KEY
     - chmod 600 $GIT_KEY
     - ssh-add $GIT_KEY
+  environment:
+    name: $ENV_NAME
 
-.run-terraform:
+.run-terragrunt:
   extends: .run-deploy
-  resource_group: $ENV_NAME/$SYSTEM_NAME
+  resource_group: $ENV_NAME/$MODULE_NAME
   script:
     - if [ -z "$CMD" ]; then echo "CMD is not set"; exit 1; fi
     - if [ -z "$ENV_NAME" ]; then echo "ENV_NAME is not set"; exit 1; fi
-    - if [ ! -d "$CI_PROJECT_DIR/environments/$ENV_NAME/$SYSTEM_NAME" ]; then echo "No environments/$ENV_NAME/$SYSTEM_NAME found"; exit 1; fi
+    - if [ ! -d "$CI_PROJECT_DIR/environments/$ENV_NAME/$MODULE_NAME" ]; then echo "No environments/$ENV_NAME/$MODULE_NAME found"; exit 1; fi
     - git config --global --add safe.directory "$(pwd)" # required to have get_repo_root() working in terragrunt
     - if [ "$CMD" = "apply" ]; then AUTO_APPROVE="-auto-approve"; else AUTO_APPROVE=; fi
     - |
-      if [ -z "$SYSTEM_NAME" ]; then 
-        echo "SYSTEM_NAME is not set, executing terragrunt run-all"
+      if [ -z "$MODULE_NAME" ]; then 
+        echo "MODULE_NAME is not set, executing terragrunt run-all"
         terragrunt run-all --terragrunt-working-dir $CI_PROJECT_DIR/environments/$ENV_NAME $CMD --terragrunt-non-interactive -lock-timeout=5m $AUTO_APPROVE
       else
-        echo "Executing terragrunt for the environments/$ENV_NAME/$SYSTEM_NAME"
-        terragrunt --terragrunt-working-dir $CI_PROJECT_DIR/environments/$ENV_NAME/$SYSTEM_NAME $CMD --terragrunt-non-interactive -lock-timeout=5m $AUTO_APPROVE
+        echo "Executing terragrunt for the environments/$ENV_NAME/$MODULE_NAME"
+        terragrunt --terragrunt-working-dir $CI_PROJECT_DIR/environments/$ENV_NAME/$MODULE_NAME $CMD --terragrunt-non-interactive -lock-timeout=5m $AUTO_APPROVE
       fi
 
 .run-helmfile:
   extends: .run-deploy
   stage: deploy
-  resource_group: $ENV_NAME/$SYSTEM_NAME
+  resource_group: $ENV_NAME/$MODULE_NAME
   script:
-    - HELMFILE="helmfile.yaml"; if [ -z "$SYSTEM_NAME" ]; then HELMFILE="helmfile-env.yaml"; fi
+    - printenv|sort
     - if [ -z "$CMD" ]; then echo "CMD is not set"; exit 1; fi
     - if [ -z "$ENV_NAME" ]; then echo "ENV_NAME is not set"; exit 1; fi
-    - if [ ! -d "$CI_PROJECT_DIR/environments/$ENV_NAME/$SYSTEM_NAME" ]; then echo "No environments/$ENV_NAME/$SYSTEM_NAME found"; exit 1; fi
+    - if [ ! -d "$CI_PROJECT_DIR/environments/$ENV_NAME/$MODULE_NAME" ]; then echo "No environments/$ENV_NAME/$MODULE_NAME found"; exit 1; fi
     - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
     - CLUSTER_NAME=$(yq eval '.cluster_name' $CI_PROJECT_DIR/environments/$ENV_NAME/environment.yaml)
     - aws eks update-kubeconfig --name $CLUSTER_NAME --alias $CLUSTER_NAME --role-arn arn:aws:iam::$ACCOUNT_ID:role/$CLUSTER_NAME-ClusterAdminRole
-    - helmfile --color $CMD -f "$CI_PROJECT_DIR/environments/$ENV_NAME/$SYSTEM_NAME/$HELMFILE"
+    - cd "$CI_PROJECT_DIR/environments/$ENV_NAME/$MODULE_NAME" && helmfile --color $CMD
 
 .run-apply-all:
   extends: .run-deploy
-  resource_group: $ENV_NAME/$SYSTEM_NAME
+  resource_group: $ENV_NAME
   script:
-    - HELMFILE="helmfile.yaml"
     - if [ -z "$ENV_NAME" ]; then echo "ENV_NAME is not set"; exit 1; fi
-    - if [ -z "$SYSTEM_NAME" ]; then echo "Running FULL environment ${ENV_NAME^^}"; HELMFILE="helmfile-env.yaml"; fi
-    - CFG_DIR="$(echo "environments/$ENV_NAME/$SYSTEM_NAME" | sed 's/\/\+$//g')"
+    - CFG_DIR="environments/$ENV_NAME"
     - if [ ! -d "$CFG_DIR" ]; then echo "No $CFG_DIR found"; exit 1; fi
     - git config --global --add safe.directory "$(pwd)" # required to have get_repo_root() working in terragrunt
     - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
     - CLUSTER_NAME=$(yq eval '.cluster_name' $CI_PROJECT_DIR/environments/$ENV_NAME/environment.yaml)
     - aws eks update-kubeconfig --name $CLUSTER_NAME --alias $CLUSTER_NAME --role-arn arn:aws:iam::$ACCOUNT_ID:role/$CLUSTER_NAME-ClusterAdminRole
     - |
-      if [ -f $CFG_DIR/terragrunt.hcl ]; then
-        terragrunt run-all --terragrunt-working-dir "$CFG_DIR" apply --terragrunt-non-interactive -lock-timeout=5m -auto-approve
-      fi
-    - |
-      if [ -f  "$CFG_DIR/$HELMFILE" ]; then
-        helmfile --color apply -f "$CFG_DIR/$HELMFILE" 
-      fi
+      cd environments/$ENV_NAME
+      for m in [0-9][0-9]-*; do
+        [ -d "$m" ] || continue
+        echo "Processing deploy module $m"
+        pushd "$m"
+        if [ -e terragrunt.hcl ]; then
+           terragrunt apply --terragrunt-non-interactive -lock-timeout=5m -auto-approve || exit 1
+        elif [ -e helmfile.yaml -o -e helmfile.yaml.gotmpl ]; then
+           hemfile --color apply || exit 1
+        else
+           echo "No terragrunt or helmfile DSF found in environments/$ENV_NAME/$m. Unable to continue"
+           exit 1
+        fi
+        popd
+      done
+      echo
+      echo "Applied successfully"

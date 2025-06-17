@@ -1,8 +1,0 @@
-helmfiles:
-  {{- range $i, $item := readDirEntries "." }}
-  {{- if $item.IsDir }}
-  {{- if isFile (print "./" $item.Name "/helmfile.yaml") }}
-  - path: {{ print $item.Name "/helmfile.yaml" }}
-  {{- end }}
-  {{- end }}
-  {{- end }}

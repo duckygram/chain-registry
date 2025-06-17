@@ -24,5 +24,4 @@ out/
 # Other
 .gitlab/generated*.yaml
 *.tgz
-Chart.lock
-templates/default/iot-hub/charts/**
+**/Chart.lock

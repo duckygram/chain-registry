@@ -1,28 +1,42 @@
 #!/usr/bin/env python3
 # The script generates pipelines to be triggered basing on the content of the repository
-# and changes in current branch or commit
+# and changes in the current branch or commit
 
 import os
 import subprocess
 import logging
 from glob import glob
 import yaml
+from enum import Enum, auto
 
 
-def ci_job(env_name: str, system_name: str, cmd: str, cluster_name: str,
-           tool: str = None, manual: bool = False, stage: str = None, needs: list = []):
+class ModuleType(Enum):
+    Terragrunt = auto()
+    Helmfile = auto()
+
+
+def ci_job(env_name: str, module_name: str, cmd: str, cluster_name: str,
+           module_type: ModuleType, manual: bool = False, stage: str = None, needs=None):
     """
     Returns a dict representing a Gitlab CI job and the name for the job
     """
-    assert tool in ['terraform', 'helmfile'] or cmd == 'apply'
+
+    if module_type == ModuleType.Helmfile:
+        tool = "helmfile"
+        if cmd == "plan":
+            cmd = "diff"
+    elif module_type == ModuleType.Terragrunt:
+        tool = "terragrunt"
+    else:
+        raise Exception(f"Unsupported module type '{module_type}' of module '{module_name}'")
 
     job = {
-        'extends': '.run-apply-all' if cmd == 'apply' else f'.run-{tool}',
+        'extends': f'.run-{tool}',
         'stage': stage or ('Apply' if cmd == 'apply' else 'Preview'),
         'tags': [f"{cluster_name}-cluster"],
         'variables': {
             'ENV_NAME': env_name,
-            'SYSTEM_NAME': system_name,
+            'MODULE_NAME': module_name,
             'CMD': cmd
         }
     }
@@ -30,10 +44,10 @@ def ci_job(env_name: str, system_name: str, cmd: str, cluster_name: str,
     if manual:
         job['when'] = 'manual'
 
-    if needs is not None:
-        job['needs'] = needs
+    if needs:
+        job['needs'] = needs.copy()
 
-    job_name = f'{(system_name or env_name).upper()} {cmd}' + (f' {tool}' if tool else '')
+    job_name = f'{(module_name or env_name).upper()} {tool} {cmd}'
 
     return job_name, job
 
@@ -55,27 +69,33 @@ def find_environments(directory):
     return [(e, str(os.path.relpath(e, directory))) for e in environments]
 
 
-def find_systems(env_directory):
+def find_modules(env_directory):
     """
-    Returns a list tuples (path, name) of Systems found in the given directory
+    Returns a list of tuples (path, name, mtype) of Deploy Module found in the given directory
     """
     result = []
-    for path in glob(os.path.join(env_directory, '*')):
+    for path in sorted(glob(os.path.join(env_directory, '*'))):
         if not os.path.isdir(path):
             continue
-        result.append((path, os.path.basename(path)))
+        if os.path.exists(os.path.join(path, "terragrunt.hcl")):
+            mtype = ModuleType.Terragrunt
+        elif os.path.exists(os.path.join(path, "helmfile.yaml")) or os.path.exists(os.path.join(path, "helmfile.yaml.gotmpl")):
+            mtype = ModuleType.Helmfile
+        else:
+            raise Exception(f"Cannot determine deploy module type of '{path}'")
+        result.append((path, os.path.basename(path), mtype))
     return result
 
 
 def get_git_changes(path):
     """
     Seeks for changes made to the specified path[s] in the git repository.
-    Compares to the default branch if we are not on default branch or to previous commit if we are
+    Compares to the default branch if we are not on the default branch or to the previous commit if we are
     on the default branch.
 
     Path could be given as a string or a list of strings
 
-    Return boolean value indicating whether any changes found.
+    Return a boolean value indicating whether any changes found.
     """
     if isinstance(path, str):
         path = [path]
@@ -132,12 +152,12 @@ def main():
         all_jobs_are_manual = bool(env_cfg.get('ci', {}).get('all_jobs_are_manual', False))
         cluster_name = env_cfg.get('cluster_name', "development")
 
-        # check if the env uses local template. If so, we will consider changes in the template
+        # Check if the env uses local template. If so, we will consider changes in the template
         # when detecting changes for a system
         tmpl_url = env_cfg.get('template', {}).get('url', '')
-        if tmpl_url and not tmpl_url.startswith('ssh:'):
+        if tmpl_url and not tmpl_url.startswith('ssh:') and not tmpl_url.startswith('https:'):
             # the env uses local template
-            template_dir = os.path.join(env_path, tmpl_url)
+            template_dir = tmpl_url #os.path.join(env_path, tmpl_url)
             logging.info(f"{env_name}: uses local template {template_dir}")
             if not os.path.isdir(template_dir):
                 raise Exception(f"Template directory {template_dir} mentioned by env {env_path} does not exist.")
@@ -146,82 +166,63 @@ def main():
             logging.info(f"{env_name}: Uses remote or none template")
             template_dir = None
 
-        # check if there are any "global" changes which may probably affect any system
+        # check if there are any "global" changes that may probably affect any system
         helm_global_dependency_paths = \
-            [os.path.join(env_path, 'environment.yaml')] + glob(os.path.join(template_dir, '*.yaml'))
+            [os.path.join(env_path, 'environment.yaml')] + glob(os.path.join(template_dir, '*.yaml')) + glob(os.path.join(template_dir, '*.gotmpl'))
 
         tf_global_dependency_paths = \
             [os.path.join(env_path, 'environment.yaml')] + glob(os.path.join(CI_PROJECT_DIR, '*.hcl'))
 
-        tf_global_changes = get_git_changes(tf_global_dependency_paths)
-        helm_global_changes = get_git_changes(helm_global_dependency_paths)
-        if tf_global_changes:
+        global_changes = {ModuleType.Helmfile: get_git_changes(helm_global_dependency_paths),
+                          ModuleType.Terragrunt: get_git_changes(tf_global_dependency_paths)}
+        if global_changes[ModuleType.Terragrunt]:
             logging.info(f"{env_name}: some env-global \033[91mchanges detected\033[0m affecting Terraform resources")
-        if helm_global_changes:
+        if global_changes[ModuleType.Helmfile]:
             logging.info(f"{env_name}: some env-global \033[91mchanges detected\033[0m affecting Helm releases")
 
         env_changed = False
+        prev_apply_jobs = []
 
-        # create pipeline jobs for every system
-        for system_path, system_name in find_systems(env_path):
+        # create pipeline jobs for every deploy module
+        for module_path, module_name, module_type in find_modules(env_path):
 
-            tg_preview_job_name, tg_preview_job = None, None
+            preview_job_name, preview_job = None, None
             helm_preview_job_name, helm_preview_job = None, None
 
-            # detect if there are any changes in the system separately to terraform and helmfile paths
-            tf_changes = tf_global_changes
-            tf_changes = tf_changes or get_git_changes(os.path.join(system_path, "*hcl"))
-            if not tf_changes and template_dir:
-                tf_changes = tf_changes or get_git_changes(os.path.join(template_dir, system_name, 'terraform'))
+            # detect if there are any changes in the module
+            module_changed = global_changes[module_type] or get_git_changes(module_path)
+            if not module_changed and template_dir:
+                module_changed = module_changed or get_git_changes(os.path.join(template_dir, module_name))
 
-            helm_changes = helm_global_changes
-            helm_changes = helm_changes or get_git_changes([os.path.join(system_path, "*yaml"),
-                                                            os.path.join(system_path, "*gotmpl")])
-            if not helm_changes and template_dir:
-                helm_changes = helm_changes or get_git_changes(os.path.join(template_dir, system_name, 'helmfile'))
-            if tf_changes or helm_changes:
-                logging.info(f"{env_name}: found system {system_name}: \033[91mchanges detected\033[0m")
+            if module_changed:
+                logging.info(f"{env_name}: found deploy module {module_name}: \033[91mchanges detected\033[0m")
             else:
-                logging.info(f"{env_name}: found system {system_name}: no changes")
+                logging.info(f"{env_name}: found deploy module {module_name}: no changes")
 
-            env_changed = env_changed or tf_changes or helm_changes
+            env_changed = env_changed or module_changed
 
-            # add env preview jobs
-            if os.path.exists(os.path.join(system_path, 'terragrunt.hcl')):
-                if not on_default_branch or (on_default_branch and not auto_apply_main):
-                    tg_preview_job_name, tg_preview_job = \
-                        ci_job(env_name, system_name, cmd='plan', tool='terraform',
-                               cluster_name=cluster_name, manual=all_jobs_are_manual or not tf_changes)
-                    env_pipeline_jobs[tg_preview_job_name] = tg_preview_job
+            # add module preview jobs
+            if not on_default_branch or (on_default_branch and not auto_apply_main):
+                preview_job_name, preview_job = \
+                    ci_job(env_name, module_name, cmd='plan', module_type=module_type, cluster_name=cluster_name,
+                           manual=all_jobs_are_manual or not module_changed)
+                env_pipeline_jobs[preview_job_name] = preview_job
 
-            if os.path.exists(os.path.join(system_path, 'helmfile.yaml')):
-                if not on_default_branch or (on_default_branch and not auto_apply_main):
-                    helm_preview_job_name, helm_preview_job = \
-                        ci_job(env_name, system_name, cmd='diff', tool='helmfile',
-                               cluster_name=cluster_name, manual=all_jobs_are_manual or not helm_changes)
-                    env_pipeline_jobs[helm_preview_job_name] = helm_preview_job
-
-            # add env apply job
+            # add module apply job
             if on_default_branch or branch_apply_enabled:
+                manual = (
+                    all_jobs_are_manual
+                    or preview_job_name is not None
+                    or helm_preview_job_name is not None
+                    or not module_changed
+                )
+
                 apply_job_name, apply_job = \
-                    ci_job(env_name, system_name, cmd='apply', cluster_name=cluster_name,
-                           manual=(all_jobs_are_manual
-                                   or tg_preview_job_name is not None
-                                   or helm_preview_job_name is not None
-                                   or not (tf_changes or helm_changes))
+                    ci_job(env_name, module_name, cmd='apply', module_type=module_type, cluster_name=cluster_name,
+                           manual=manual, needs=(None if manual else prev_apply_jobs)
                            )
                 env_pipeline_jobs[apply_job_name] = apply_job
-
-        # add full env preview jobs if we are on default branch
-        if on_default_branch:
-            preview_job_name, preview_job = \
-                ci_job(env_name, '', cmd='plan', tool='terraform', cluster_name=cluster_name,
-                       manual=True, stage="Full Preview")
-            the_pipeline[preview_job_name] = preview_job
-            preview_job_name, preview_job = \
-                ci_job(env_name, '', cmd='diff', tool='helmfile', cluster_name=cluster_name,
-                       manual=True, stage="Full Preview")
-            the_pipeline[preview_job_name] = preview_job
+                prev_apply_jobs.append(apply_job_name)
 
         # add env pipeline trigger job
         env_trigger_job = {
@@ -279,7 +280,8 @@ ENVIRONMENTS_DIR = os.path.join(CI_PROJECT_DIR, 'environments')
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s : %(levelname)s : %(message)s')
 
-    # fetch the latest changes of main branch from origin
+    # fetch the latest changes of the main branch from origin.
+    # we need it to compare our version to the default branch content.
     subprocess.run(['git', 'fetch', 'origin', CI_DEFAULT_BRANCH])
 
     # let's generate!

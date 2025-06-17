@@ -1,0 +1,23 @@
+{
+  "plugins": [
+    [
+      "./semantic-release-plugin.mjs"
+    ],
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "./templates/CHANGELOG.md",
+        "changelogTitle": "# Templates Change Log"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "./templates/CHANGELOG.md"
+        ],
+        "message": "chore(release): <%= nextRelease.version %> [skip ci]"
+      }
+    ]
+  ]
+}
