@@ -6,6 +6,6 @@ app:
         hostnames:
           - "skip-go-proxy.{{ .Values.environment }}.{{ .Values.project_name }}.{{ .Values.ingress.baseDomain }}"
   env:
-    SKIP_API_KEY: "secret-value:{{ $db.username }}"
+    SKIP_API_KEY: "secret-value:{{ $secrets.skip_api_key }}"
     SKIP_API_URL: "https://api.skip.go"
 
