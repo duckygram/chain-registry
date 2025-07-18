@@ -1,5 +1,11 @@
 # Templates Change Log
 
+## 1.2.0 (2025-07-18)
+
+### Features
+
+- add skip go proxy (0ec4542)
+
 ## 1.1.0 (2025-06-17)
 
 ### Features
