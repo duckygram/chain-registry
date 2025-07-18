@@ -56,3 +56,11 @@ releases:
     values:
       - apps/explorer.yaml.gotmpl
       - {{ index .Values.apps.values "explorer" | default dict | toYaml | nindent 8 }}
+
+  - name: skip-go-proxy
+    namespace: "{{ $namespace }}"
+    chart: "{{ .Values.chartRegistry }}/outbe/skip-go-proxy"
+    version: "{{ index .Values.apps.versions "skip-go-proxy" }}"
+    values:
+      - apps/skip-go-proxy.yaml.gotmpl
+      - {{ index .Values.apps.values "skip-go-proxy" | default dict | toYaml | nindent 8 }}
