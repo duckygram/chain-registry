@@ -1,5 +1,11 @@
 # Templates Change Log
 
+## 1.2.1 (2025-08-01)
+
+### Bug Fixes
+
+- update outbe-node version (d7f332c)
+
 ## 1.2.0 (2025-07-18)
 
 ### Features
