@@ -8,6 +8,14 @@ helmfiles:
       - {{ omit $e "ci" "template" | toYaml | nindent 8 }}
       - apps:
           versions:
-            outbe-node: v1.1.5
+            outbe-node: 0.0.0-main
             explorer: v1.4.4
             skip-go-proxy: v1.0.0
+          values:
+            outbe-node:
+              persistentPeers: 37c7ce8f2698f58b6746726a5fa91707664c1850@rpc.dev.outbe.net:26656
+              configFiles:
+                genesis.json:
+                  mountDir: /home/heighliner/.outbe-node/config
+                  content: '{{ readFile "./outbe-node-genesis.json" }}'
+

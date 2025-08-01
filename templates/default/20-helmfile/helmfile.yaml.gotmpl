@@ -43,7 +43,7 @@ releases:
 
   - name: outbe-node
     namespace: "{{ $namespace }}"
-    chart: "{{ .Values.chartRegistry }}/outbe/outbe-node"
+    chart: "{{ .Values.chartRegistry }}/outbe/node-build/outbe-node"
     version: "{{ index .Values.apps.versions "outbe-node" }}"
     values:
       - apps/outbe-node.yaml.gotmpl
