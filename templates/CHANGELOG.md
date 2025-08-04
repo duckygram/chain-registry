@@ -1,5 +1,12 @@
 # Templates Change Log
 
+## 1.3.0 (2025-08-04)
+
+### Features
+
+- add skip.build app (0fb85c5)
+- setup skip build app to make swaps (51f5714)
+
 ## 1.2.1 (2025-08-01)
 
 ### Bug Fixes
