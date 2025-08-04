@@ -6,7 +6,8 @@ app:
         hostnames:
           - "skip-go-app.{{ .Values.environment }}.{{ .Values.project_name }}.{{ .Values.ingress.baseDomain }}"
   env:
-    APP_URL: "skip-go-app.{{ .Values.environment }}.{{ .Values.project_name }}.{{ .Values.ingress.baseDomain }}"
+    APP_URL: "https://skip-go-app.{{ .Values.environment }}.{{ .Values.project_name }}.{{ .Values.ingress.baseDomain }}"
+    NEXT_PUBLIC_VERCEL_ENV: "production"
     NEXT_PUBLIC_API_URL: "https://skip-go-proxy.{{ .Values.environment }}.{{ .Values.project_name }}.{{ .Values.ingress.baseDomain }}/api/skip"
     NEXT_PUBLIC_IS_TESTNET: true
     POLKACHU_USER: admin
