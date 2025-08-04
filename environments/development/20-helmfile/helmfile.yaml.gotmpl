@@ -14,5 +14,15 @@ helmfiles:
             skip-go-app: v0.0.1-setup-deployment
           values:
             outbe-node:
+              persistentPeers: 37c7ce8f2698f58b6746726a5fa91707664c1850@rpc.dev.outbe.net:26656
+              configFiles:
+                app.toml:
+                  mountDir: /home/heighliner/.outbe-node/config
+                  content: |-
+{{ readFile "./outbe-node/app.toml" | nindent 20 }}
+                config.toml:
+                  mountDir: /home/heighliner/.outbe-node/config
+                  content: |-
+{{ readFile "./outbe-node/config.toml" | nindent 20 }}
               persistence:
                 size: 15Gi

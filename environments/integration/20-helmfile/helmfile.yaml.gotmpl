@@ -18,6 +18,14 @@ helmfiles:
               configFiles:
                 genesis.json:
                   mountDir: /home/heighliner/.outbe-node/config
-                  content: '{{ readFile "./outbe-node-genesis.json" }}'
+                  content: '{{ readFile "./outbe-node/outbe-node-genesis.json" }}'
+                app.toml:
+                  mountDir: /home/heighliner/.outbe-node/config
+                  content: |-
+{{ readFile "./outbe-node/app.toml" | nindent 20 }}
+                config.toml:
+                  mountDir: /home/heighliner/.outbe-node/config
+                  content: |-
+{{ readFile "./outbe-node/config.toml" | nindent 20 }}
               persistence:
                 size: 60Gi
