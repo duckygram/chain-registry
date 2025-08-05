@@ -13,6 +13,11 @@ helmfiles:
             skip-go-proxy: v1.0.0
             skip-go-app: v0.0.1-setup-deployment
           values:
+            relayer:
+              configFiles:
+                config.toml:
+                  content: |
+                    {{ readFile "./relayer/config.toml" | nindent 20 }}
             outbe-node:
               persistentPeers: 37c7ce8f2698f58b6746726a5fa91707664c1850@rpc.dev.outbe.net:26656
               configFiles:
