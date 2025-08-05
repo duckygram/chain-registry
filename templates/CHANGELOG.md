@@ -1,5 +1,11 @@
 # Templates Change Log
 
+## 1.4.0 (2025-08-05)
+
+### Features
+
+- add relayer service (40c324a)
+
 ## 1.3.0 (2025-08-04)
 
 ### Features
