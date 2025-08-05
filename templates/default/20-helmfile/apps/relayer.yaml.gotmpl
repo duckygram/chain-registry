@@ -1,0 +1,85 @@
+
+global:
+  chart:
+    name: "{{ .Release.Name }}"
+    version: {{ .StateValues.apps.versions.relayer }}
+    labelWithTemplateChartName: true
+
+  image:
+    registry: "docker.io"
+    repository: "informalsystems/hermes"
+    tag: {{ .StateValues.apps.versions.relayer }}
+    pullPolicy: IfNotPresent
+
+workloadType: Deployment
+
+replicas: 1
+
+deploymentStrategy:
+  type: Recreate
+  rollingUpdate:
+
+## Override image entrypoint and arguments
+commandOverride:
+  - bash
+  - -c
+  - |
+    ls -la
+    cat $HOME/config.toml
+    if [ ! -d $HOME/.hermes/keys/localchain-1 ]; then
+      /usr/bin/hermes --config $HOME/config.toml keys add --key-name outbe-validator --chain localchain-1 --mnemonic-file $HOME/.k/outbe.mnemonic
+    fi
+    if [ ! -d $HOME/.hermes/keys/provider ]; then
+      /usr/bin/hermes --config $HOME/config.toml keys add --key-name bob --chain provider --mnemonic-file $HOME/.k/cosmoshub.mnemonic
+    fi
+    /usr/bin/hermes --config $HOME/config.toml start
+
+ports:
+  http:
+    enabled: true
+    containerPort: 3000
+  management:
+    enabled: true
+    containerPort: 3001
+
+# Kubernetes probes for the application
+startupProbe:
+  httpGet:
+    path: /metrics
+    port: management
+livenessProbe:
+  httpGet:
+    path: /metrics
+    port: management
+readinessProbe:
+  httpGet:
+    path: /metrics
+    port: management
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 1024Mi
+
+configFiles:
+  config.toml:
+    mountDir:  /home/hermes/
+    content: "to be provided by environment"
+
+secretConfigFiles:
+  outbe.mnemonic:
+    mountDir:  /home/hermes/.k/
+    content: '{{ print .StateValues.secretPath .StateValues.environment "/hermes#outbe_mnemonic" | fetchSecretValue }}'
+  cosmoshub.mnemonic:
+    mountDir:  /home/hermes/.k/
+    content: '{{ print .StateValues.secretPath .StateValues.environment "/hermes#cosmoshub_mnemonic" | fetchSecretValue }}'
+
+serviceMonitor:
+  enabled: true
+  port: management
+  path: /relayer/metrics
+
+networkPolicy:
+  enabled: false
